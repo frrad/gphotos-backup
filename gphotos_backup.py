@@ -295,8 +295,22 @@ def verify(config, part, counts):
     archive = info["archives"][0]
     if archive.get("comment") != "gphotos-backup:v1:" + part.identity:
         raise Failure("Archive name already exists without matching provenance; manual review required")
-    if counts is None or archive["stats"]["nfiles"] != counts[0] or archive["stats"]["original_size"] != counts[1]:
+    if counts is None or archive["stats"]["nfiles"] != counts[0]:
         raise Failure("Archive file count/size did not match extracted inputs")
+    # Borg's original_size includes metadata chunks as well as file contents.
+    # Compare payload sizes from the item listing, never the archive total.
+    listing = command(["borg", "list", "--json-lines", "--format", "{size}",
+                       f"{config.repo}::{part.archive}"])
+    files, size = 0, 0
+    for line in listing.splitlines():
+        item = json.loads(line)
+        if not item.get("healthy") or item["type"] not in ("-", "d"):
+            raise Failure("Archive contains unhealthy or unexpected items; inputs retained")
+        if item["type"] == "-":
+            files += 1
+            size += item["size"]
+    if (files, size) != counts:
+        raise Failure("Archive payload file count/size did not match extracted inputs")
 
 
 def cleanup(config, part):

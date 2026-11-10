@@ -176,6 +176,54 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaises(pipeline.Failure):
                 pipeline.run(self.config, [part], self.state, {part.archive: {}})
 
+    def test_verification_uses_payload_bytes_and_rejects_bad_items(self):
+        part, _ = self.part()
+        info = {"archives": [{"comment": "gphotos-backup:v1:" + part.identity,
+                              "stats": {"nfiles": 1, "original_size": 1000000}}]}
+        good = {"type": "-", "size": 12, "healthy": True}
+        directory = {"type": "d", "size": 0, "healthy": True}
+        listing = "\n".join(json.dumps(item) for item in (directory, good))
+        with patch.object(pipeline, "command", side_effect=[json.dumps(info), listing]):
+            pipeline.verify(self.config, part, (1, 12))
+        for items in ([], [dict(good, size=11)], [good, good],
+                      [dict(good, healthy=False)], [dict(good, type="l")]):
+            with self.subTest(items=items):
+                listing = "\n".join(json.dumps(item) for item in items)
+                with patch.object(pipeline, "command", side_effect=[json.dumps(info), listing]):
+                    with self.assertRaises(pipeline.Failure):
+                        pipeline.verify(self.config, part, (1, 12))
+
+    @unittest.skipUnless(shutil.which("borg"), "requires Borg")
+    def test_real_large_metadata_archive_reconciles_without_reimport(self):
+        self.initialize_borg()
+        part, source = self.part()
+        folder = self.config.staging / part.identity
+        target = folder / "extracted"
+        # Long synthetic paths push item metadata past Borg's 8 MiB buffer.
+        # Tiny archives do not expose the metadata included in original_size.
+        album = target / "Takeout"
+        for index in range(12):
+            album /= f"synthetic-{index:02}-" + "a" * 165
+        album.mkdir(parents=True)
+        payload = b"synthetic"
+        for index in range(4000):
+            (album / f"photo-{index:05}.jpg").write_bytes(payload)
+        shutil.copyfile(source, folder / "source")
+        counts = (4000, 4000 * len(payload))
+        self.state.set(part, "creating", counts)
+        pipeline.command(["borg", "create", "--json", "--comment",
+                          "gphotos-backup:v1:" + part.identity,
+                          f"{self.repo}::{part.archive}", "."], cwd=target)
+        self.state.set(part, "created")
+        info = json.loads(pipeline.command(["borg", "info", "--json",
+                                           f"{self.repo}::{part.archive}"]))
+        self.assertGreater(info["archives"][0]["stats"]["original_size"], counts[1])
+        with patch.object(pipeline, "download", side_effect=AssertionError("must not redownload")), \
+                patch.object(pipeline, "ingest", side_effect=AssertionError("must not reimport")):
+            pipeline.run(self.config, [part], self.state, pipeline.archive_map(self.config))
+        self.assertEqual(self.state.get(part)[0], "complete")
+        self.assertFalse(folder.exists())
+
     @unittest.skipUnless(shutil.which("borg") and shutil.which("rclone"), "requires Borg and rclone")
     def test_real_download_import_restore_and_rerun(self):
         self.initialize_borg()

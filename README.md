@@ -91,7 +91,9 @@ may still request one. A checkpoint is a partial backup, not a completed import.
 - Borg keeps its default chunking, compression, and checkpoint policy. Stable
   relative paths are stored, without random staging-directory prefixes.
 - Every new archive has a source-fingerprint comment. Verification checks that
-  marker plus the extracted file count and logical byte total using `borg info`.
+  marker and file count with `borg info`, then checks healthy regular-file counts
+  and payload bytes with `borg list`. Borg's `original_size` includes metadata
+  and must not be compared directly with extracted file bytes.
   This is metadata verification, not a full readback or `borg check --verify-data`.
 - If creation returned zero but verification/completion was interrupted, the next
   run reconciles the existing archive and completes cleanup without downloading.

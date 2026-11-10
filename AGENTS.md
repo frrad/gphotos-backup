@@ -65,6 +65,10 @@ Google Takeout to Borg pipeline. Treat every committed byte as publicly visible.
   not a full restore or data-integrity check. Existing names alone are not proof
   of success. Warning-producing or uncertain Borg results require review; never
   force completion or delete staging merely to get a retry past that safeguard.
+- Borg's `original_size` includes archive metadata. Verify payload bytes by
+  summing regular-file sizes from `borg list`, not by comparing `original_size`
+  with extracted file sizes. Include a real large-metadata archive in regression
+  tests; tiny archives can conceal this accounting difference.
 
 ## Development
 
