@@ -1,0 +1,8 @@
+{
+  "repository": "/srv/backups/photos-borg",
+  "remote": "takeout:Takeout",
+  "rclone_config": "/home/USER/.config/rclone/rclone.conf",
+  "download_workers": 2,
+  "reserve_gib": 20,
+  "cleanup": false
+}

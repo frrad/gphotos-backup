@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gphotos-backup"
+version = "0.1.0"
+description = "Restartable Google Takeout imports into Borg"
+requires-python = ">=3.11"
+
+[project.scripts]
+gphotos-backup = "gphotos_backup:main"
+
+[tool.setuptools]
+py-modules = ["gphotos_backup"]

@@ -11,6 +11,9 @@ rclone.conf
 *.key
 *.pem
 config.local.*
+/config.json
+/rclone.conf
+/oauth-callback.env
 /config/
 /secrets/
 
