@@ -384,13 +384,19 @@ def main(argv=None):
         parser.error("--limit must be positive")
     try:
         config = Config(args.config)
+        if args.action == "status":
+            # Readers must remain available while an import holds the writer lock.
+            path = config.state / "state.sqlite3"
+            if not path.exists():
+                print("{}")
+            else:
+                with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as db:
+                    rows = db.execute("SELECT status, count(*) FROM parts GROUP BY status").fetchall()
+                    print(json.dumps(dict(rows)))
+            return 0
         with locked(config):
             state = State(config)
             try:
-                if args.action == "status":
-                    rows = state.db.execute("SELECT status, count(*) FROM parts GROUP BY status").fetchall()
-                    print(json.dumps(dict(rows)))
-                    return 0
                 parts = discover(config)
                 parts = [p for p in parts if fnmatch.fnmatchcase(p.archive, args.match)]
                 if args.limit:

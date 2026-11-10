@@ -38,6 +38,34 @@ Google Takeout to Borg pipeline. Treat every committed byte as publicly visible.
 - Do not delete remote Drive files, prune archives, compact, repair, or destroy
   the repository as part of normal ingestion.
 
+## Operating and monitoring
+
+- Read the private runtime configuration before changing an active run. Example
+  defaults are not the live settings; preserve intentional concurrency, cleanup,
+  and space-reserve choices. Worker settings are loaded at process startup.
+- The importer supports 1–4 download workers and one extraction/import worker.
+  Space reservations stop work before breaching the configured reserve, but are
+  not a filesystem quota and cannot account for unrelated writers.
+- Keep cleanup disabled for a pilot; validate a restore before enabling it.
+  Enabled cleanup removes the completed part's entire local staging directory,
+  including its ZIP/TGZ and extracted files. Keep durable completion state and
+  leave Drive originals untouched.
+- Run long imports in a persistent BB terminal. Check the existing process
+  before launching another. To restart, request a graceful Ctrl-C and confirm
+  exit before launching its replacement; allow Borg to finish checkpointing.
+  Verified downloads can be reused, but partial downloads may restart from zero.
+- Use the read-only `status` action while an import is running. Do not acquire
+  the pipeline writer lock just to monitor progress. When replacing an import
+  terminal, update any scheduled monitor to watch the replacement.
+- Progress updates should report aggregate completed parts, current stage, free
+  space, and measured download throughput without exposing private inventories.
+  When providing an ETA, distinguish download completion from verified Borg
+  import completion; use observed rates and state uncertainty or stalls.
+- Archive provenance, file counts, and logical sizes are metadata verification,
+  not a full restore or data-integrity check. Existing names alone are not proof
+  of success. Warning-producing or uncertain Borg results require review; never
+  force completion or delete staging merely to get a retry past that safeguard.
+
 ## Development
 
 Keep the orchestrator small and its stages independently restartable. Tests

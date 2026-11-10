@@ -1,4 +1,5 @@
 import io
+from contextlib import redirect_stdout
 import json
 from pathlib import Path
 import shutil
@@ -113,6 +114,14 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaises(pipeline.Failure):
                 pipeline.download(self.config, part, self.space)
             copy.assert_not_called()
+
+    def test_status_remains_available_while_writer_is_locked(self):
+        self.part()
+        output = io.StringIO()
+        with pipeline.locked(self.config), redirect_stdout(output):
+            result = pipeline.main(["--config", str(self.config_path), "status"])
+        self.assertEqual(result, 0)
+        self.assertEqual(json.loads(output.getvalue()), {"pending": 1})
 
     def test_download_checksum_failure_keeps_original(self):
         part, source = self.part()
