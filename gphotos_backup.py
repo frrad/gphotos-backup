@@ -434,8 +434,10 @@ def main(argv=None):
     except Failure as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    except (OSError, ValueError, KeyError, sqlite3.Error, tarfile.TarError, zipfile.BadZipFile):
-        print("Configuration, input, or storage error; private diagnostics suppressed and inputs retained.", file=sys.stderr)
+    except (OSError, ValueError, KeyError, sqlite3.Error, tarfile.TarError, zipfile.BadZipFile) as exc:
+        # The exception type is safe to show; its message may contain private paths.
+        print(f"Configuration, input, or storage error ({type(exc).__module__}.{type(exc).__qualname__}); "
+              "private diagnostics suppressed and inputs retained.", file=sys.stderr)
         return 1
 
 
